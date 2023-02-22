@@ -12,25 +12,23 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Setter;
 
 use Pimcore\Model\DataObject;
-use Pimcore\Model\DataObject\Concrete;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\SetterContextInterface;
 
 class KeySetter implements SetterInterface
 {
-    public function set(Concrete $object, $value, ImportMapping $map, $data)
+    public function set(SetterContextInterface $context): void
     {
-        $setter = explode('~', $map->getToColumn());
+        $setter = explode('~', $context->getMapping()->getToColumn());
         $setter = preg_replace('/^o_/', '', $setter[0]);
         $setter = sprintf('set%s', ucfirst($setter));
 
-        if (method_exists($object, $setter)) {
-            $object->$setter(DataObject\Service::getValidKey($value, "object"));
+        if (method_exists($context->getObject(), $setter)) {
+            $context->getObject()->$setter(DataObject\Service::getValidKey($context->getValue(), "object"));
         }
     }
 }
-
-

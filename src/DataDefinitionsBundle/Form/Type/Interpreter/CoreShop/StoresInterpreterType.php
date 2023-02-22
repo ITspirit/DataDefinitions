@@ -12,6 +12,8 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Form\Type\Interpreter\CoreShop;
 
 use CoreShop\Bundle\StoreBundle\Form\Type\StoreChoiceType;
@@ -20,6 +22,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\CallbackTransformer;
 use Symfony\Component\Form\FormBuilderInterface;
+use function is_array;
 
 final class StoresInterpreterType extends AbstractType
 {
@@ -29,31 +32,31 @@ final class StoresInterpreterType extends AbstractType
             ->add('stores', StoreChoiceType::class, [
                 'multiple' => true,
             ])
-            ->addModelTransformer(new CallbackTransformer(
-                function ($value) {
-                    return $value;
-                },
-                function ($value) {
-                    $resolvedValues = [];
+            ->addModelTransformer(
+                new CallbackTransformer(
+                    function ($value) {
+                        return $value;
+                    },
+                    function ($value) {
+                        $resolvedValues = [];
 
-                    if (!\is_array($value) ||
-                        !array_key_exists('stores', $value) ||
-                        !$value['stores'] instanceof ArrayCollection) {
-                        return [];
-                    }
-
-                    foreach ($value['stores'] as $val) {
-                        if ($val instanceof StoreInterface) {
-                            $resolvedValues[] = $val->getId();
+                        if (!is_array($value) ||
+                            !array_key_exists('stores', $value) ||
+                            !$value['stores'] instanceof ArrayCollection) {
+                            return [];
                         }
+
+                        foreach ($value['stores'] as $val) {
+                            if ($val instanceof StoreInterface) {
+                                $resolvedValues[] = $val->getId();
+                            }
+                        }
+
+                        $value['stores'] = $resolvedValues;
+
+                        return $value;
                     }
-
-                    $value['stores'] = $resolvedValues;
-
-                    return $value;
-                }
-            ));
+                )
+            );
     }
 }
-
-

@@ -12,28 +12,15 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Runner;
 
-use Pimcore\Model\DataObject\Concrete;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ExportDefinitionInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\RunnerContextInterface;
 
 interface ExportRunnerInterface
 {
-    /**
-     * @param Concrete                  $object
-     * @param array                     $data
-     * @param ExportDefinitionInterface $definition
-     * @param array                     $params
-     */
-    public function exportPreRun(Concrete $object, $data, ExportDefinitionInterface $definition, $params);
+    public function exportPreRun(RunnerContextInterface $context);
 
-    /**
-     * @param Concrete                  $object
-     * @param array                     $data
-     * @param ExportDefinitionInterface $definition
-     * @param array                     $params
-     */
-    public function exportPostRun(Concrete $object, $data, ExportDefinitionInterface $definition, $params);
+    public function exportPostRun(RunnerContextInterface $context);
 }
-
-

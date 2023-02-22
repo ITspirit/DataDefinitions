@@ -12,6 +12,8 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Service;
 
 use Pimcore\Model\DataObject;
@@ -20,11 +22,6 @@ use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping\ToColumn;
 
 class FieldSelection
 {
-    /**
-     * @param DataObject\ClassDefinition $class
-     * @return array
-     * @throws \Exception
-     */
     public function getClassDefinition(DataObject\ClassDefinition $class): array
     {
         $fields = $class->getFieldDefinitions();
@@ -140,8 +137,10 @@ class FieldSelection
                 $allowedGroupIds = $field->getAllowedGroupIds();
 
                 if ($allowedGroupIds) {
-                    $list->setCondition('ID in ('.implode(',', $allowedGroupIds).') AND storeId = ?',
-                        [$field->getStoreId()]);
+                    $list->setCondition(
+                        'ID in ('.implode(',', $allowedGroupIds).') AND storeId = ?',
+                        [$field->getStoreId()]
+                    );
                 } else {
                     $list->setCondition('storeId = ?', [$field->getStoreId()]);
                 }
@@ -194,10 +193,6 @@ class FieldSelection
         return $result;
     }
 
-    /**
-     * @param DataObject\ClassDefinition\Data $field
-     * @return ToColumn
-     */
     protected function getFieldConfiguration(DataObject\ClassDefinition\Data $field): ToColumn
     {
         $toColumn = new ToColumn();
@@ -210,5 +205,3 @@ class FieldSelection
         return $toColumn;
     }
 }
-
-

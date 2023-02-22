@@ -12,35 +12,43 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Loader;
 
+use InvalidArgumentException;
 use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Model\DataObject\Listing;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\LoaderContextInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping;
+use function count;
 
 class PrimaryKeyLoader implements LoaderInterface
 {
-    public function load(string $class, $data, DataDefinitionInterface $definition, $params): ?Concrete
+    public function load(LoaderContextInterface $context): ?Concrete
     {
-        $classObject = '\Pimcore\Model\DataObject\\'.ucfirst($class);
-        $classList = '\Pimcore\Model\DataObject\\'.ucfirst($class).'\Listing';
+        $classObject = '\Pimcore\Model\DataObject\\'.ucfirst($context->getClass());
+        $classList = '\Pimcore\Model\DataObject\\'.ucfirst($context->getClass()).'\Listing';
 
         $list = new $classList();
 
         if ($list instanceof Listing) {
-            $mapping = $definition->getMapping();
+            /**
+             * @var ImportMapping[] $mapping
+             */
+            $mapping = $context->getDefinition()->getMapping();
             $condition = [];
             $conditionValues = [];
             foreach ($mapping as $map) {
                 if ($map->getPrimaryIdentifier()) {
                     $condition[] = '`'.$map->getToColumn().'` = ?';
-                    $conditionValues[] = $data[$map->getFromColumn()];
+                    $conditionValues[] = $context->getDataRow()[$map->getFromColumn()];
                 }
             }
 
-            if (\count($condition) === 0) {
-                throw new \InvalidArgumentException('No primary identifier defined!');
+            if (count($condition) === 0) {
+                throw new InvalidArgumentException('No primary identifier defined!');
             }
 
             $list->setUnpublished(true);
@@ -53,14 +61,14 @@ class PrimaryKeyLoader implements LoaderInterface
             $list->load();
             $objectData = $list->getObjects();
 
-            if (\count($objectData) > 1) {
-                throw new \InvalidArgumentException('Object with the same primary key was found multiple times');
+            if (count($objectData) > 1) {
+                throw new InvalidArgumentException('Object with the same primary key was found multiple times');
             }
 
-            if (\count($objectData) === 1) {
+            if (count($objectData) === 1) {
                 $obj = $objectData[0];
 
-                if ($definition->getForceLoadObject()) {
+                if ($context->getDefinition()->getForceLoadObject()) {
                     $obj = DataObject::getById($obj->getId(), true);
 
                     if (!$obj instanceof $classObject) {
@@ -75,5 +83,3 @@ class PrimaryKeyLoader implements LoaderInterface
         return null;
     }
 }
-
-

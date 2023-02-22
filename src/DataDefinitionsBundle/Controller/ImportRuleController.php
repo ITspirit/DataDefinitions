@@ -12,23 +12,23 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Controller;
 
-use Box\Spout\Common\Type;
-use Box\Spout\Reader\ReaderFactory;
-use Box\Spout\Writer\WriterFactory;
-use CoreShop\Bundle\ResourceBundle\Controller\ResourceController;
 use Pimcore\Bundle\AdminBundle\Controller\AdminController;
-use Symfony\Component\Form\FormFactory;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Wvision\Bundle\DataDefinitionsBundle\Form\Type\ImportRulesImportType;
 
 class ImportRuleController extends AdminController
 {
-    public function importAction(Request $request, FormFactoryInterface $formFactory)
+    protected bool $useSpoutLegacy = false;
+
+    public function importAction(Request $request, FormFactoryInterface $formFactory): JsonResponse
     {
         $form = $formFactory->createNamed('', ImportRulesImportType::class);
 
@@ -47,7 +47,7 @@ class ImportRuleController extends AdminController
 
         $file = $file->move(PIMCORE_SYSTEM_TEMP_DIRECTORY);
 
-        $reader = ReaderFactory::create(Type::XLSX);
+        $reader = $this->getXlsxReader();
         $reader->open($file->getPathname());
         $sheetIterator = $reader->getSheetIterator();
         $sheetIterator->rewind();
@@ -56,6 +56,7 @@ class ImportRuleController extends AdminController
         $headers = null;
         $headersCount = null;
         $raw = [];
+        $rules = [];
 
         foreach ($rowIterator as $row) {
             if (null === $headers) {
@@ -84,20 +85,18 @@ class ImportRuleController extends AdminController
             ];
             $conditions = [];
             $actions = [];
-
             //new type
             //same config key
 
             $condition = null;
             $action = null;
 
-            $configuration = [];
             $lastConfigType = null;
             $lastConfigKey = null;
             $lastConfigIndex = null;
 
             foreach ($rawRule as $key => $value) {
-                if (strpos($key, 'condition_') === 0) {
+                if (str_starts_with($key, 'condition_')) {
                     if (!$value) {
                         continue;
                     }
@@ -106,7 +105,7 @@ class ImportRuleController extends AdminController
                     $configType = substr($configType, 0, strpos($configType, '___'));
 
                     $configKeyAndIndex = substr($key, strpos($key, '___') + 3);
-                    list($configIndex, $configKey) = explode('___', $configKeyAndIndex);
+                    [$configIndex, $configKey] = explode('___', $configKeyAndIndex);
 
                     if (null === $lastConfigType && null === $lastConfigKey && null === $lastConfigIndex) {
                         $lastConfigType = $configType;
@@ -114,10 +113,9 @@ class ImportRuleController extends AdminController
                         $lastConfigIndex = $configIndex;
                         $condition = [
                             'type' => $configType,
-                            'configuration' => []
+                            'configuration' => [],
                         ];
-                    }
-                    else {
+                    } else {
                         if ($lastConfigType !== $configType || $lastConfigKey === $configKey || $lastConfigIndex !== $configIndex) {
                             if (null !== $condition && count($condition['configuration']) > 0) {
                                 $conditions[] = $condition;
@@ -125,7 +123,7 @@ class ImportRuleController extends AdminController
 
                             $condition = [
                                 'type' => $configType,
-                                'configuration' => []
+                                'configuration' => [],
                             ];
                         }
                     }
@@ -133,7 +131,7 @@ class ImportRuleController extends AdminController
                     $condition['configuration'][$configKey] = $value;
                 }
 
-                if (strpos($key, 'action_') === 0) {
+                if (str_starts_with($key, 'action_')) {
                     if (!$value) {
                         continue;
                     }
@@ -142,7 +140,7 @@ class ImportRuleController extends AdminController
                     $configType = substr($configType, 0, strpos($configType, '___'));
 
                     $configKeyAndIndex = substr($key, strpos($key, '___') + 3);
-                    list($configIndex, $configKey) = explode('___', $configKeyAndIndex);
+                    [$configIndex, $configKey] = explode('___', $configKeyAndIndex);
 
                     if (null === $lastConfigType && null === $lastConfigKey && null === $lastConfigIndex) {
                         $lastConfigType = $configType;
@@ -150,10 +148,9 @@ class ImportRuleController extends AdminController
                         $lastConfigIndex = $configIndex;
                         $action = [
                             'type' => $configType,
-                            'configuration' => []
+                            'configuration' => [],
                         ];
-                    }
-                    else {
+                    } else {
                         if ($lastConfigType !== $configType || $lastConfigKey === $configKey || $lastConfigIndex !== $configIndex) {
                             if (null !== $action && count($action['configuration']) > 0) {
                                 $actions[] = $action;
@@ -161,7 +158,7 @@ class ImportRuleController extends AdminController
 
                             $action = [
                                 'type' => $configType,
-                                'configuration' => []
+                                'configuration' => [],
                             ];
                         }
                     }
@@ -180,7 +177,17 @@ class ImportRuleController extends AdminController
 
             $rule['actions'] = $actions;
             $rule['conditions'] = $conditions;
-            $rule['id'] = sprintf('%04X%04X-%04X-%04X-%04X-%04X%04X%04X', mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(16384, 20479), mt_rand(32768, 49151), mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535));
+            $rule['id'] = sprintf(
+                '%04X%04X-%04X-%04X-%04X-%04X%04X%04X',
+                mt_rand(0, 65535),
+                mt_rand(0, 65535),
+                mt_rand(0, 65535),
+                mt_rand(16384, 20479),
+                mt_rand(32768, 49151),
+                mt_rand(0, 65535),
+                mt_rand(0, 65535),
+                mt_rand(0, 65535)
+            );
 
             $rules[] = $rule;
         }
@@ -188,7 +195,7 @@ class ImportRuleController extends AdminController
         return $this->json(['success' => true, 'rules' => $rules]);
     }
 
-    public function exportAction(Request $request)
+    public function exportAction(Request $request): BinaryFileResponse
     {
         $rules = json_decode($request->get('rules', '[]'), true);
 
@@ -196,12 +203,12 @@ class ImportRuleController extends AdminController
 
         $filePath = tempnam(sys_get_temp_dir(), 'import_rule_set');
 
-        $writer = WriterFactory::create(Type::XLSX);
+        $writer = $this->getXlsxWriter();
         $writer->openToFile($filePath);
 
         $headers = [
             'name',
-            'active'
+            'active',
         ];
         $headersCondition = [];
         $headersAction = [];
@@ -214,7 +221,7 @@ class ImportRuleController extends AdminController
                 $type = $condition['type'];
 
                 foreach ($condition['configuration'] as $key => $value) {
-                    $conditionHeader = 'condition_' . $type . '___1___' . $key;
+                    $conditionHeader = 'condition_'.$type.'___1___'.$key;
 
                     if (!array_key_exists($conditionHeader, $countPerType)) {
                         $countPerType[$conditionHeader] = 0;
@@ -223,7 +230,7 @@ class ImportRuleController extends AdminController
                     $countPerType[$conditionHeader]++;
 
                     if ($countPerType[$conditionHeader] > 1) {
-                        $conditionHeader = 'condition_' . $type . '___'.$countPerType[$conditionHeader].'___' . $key;
+                        $conditionHeader = 'condition_'.$type.'___'.$countPerType[$conditionHeader].'___'.$key;
                     }
 
                     if (!in_array($conditionHeader, $headersCondition)) {
@@ -236,7 +243,7 @@ class ImportRuleController extends AdminController
                 $type = $action['type'];
 
                 foreach ($action['configuration'] as $key => $value) {
-                    $actionHeader = 'action_' . $type . '___1___' . $key;
+                    $actionHeader = 'action_'.$type.'___1___'.$key;
 
                     if (!array_key_exists($actionHeader, $countPerType)) {
                         $countPerType[$actionHeader] = 0;
@@ -244,8 +251,8 @@ class ImportRuleController extends AdminController
 
                     $countPerType[$actionHeader]++;
 
-                    if ($countPerType[$conditionHeader] > 1) {
-                        $actionHeader = 'action_' . $type . '___'.$countPerType[$conditionHeader].'___' . $key;
+                    if ($countPerType[$actionHeader] > 1) {
+                        $actionHeader = 'action_'.$type.'___'.$countPerType[$actionHeader].'___'.$key;
                     }
 
                     if (!in_array($actionHeader, $headersAction)) {
@@ -270,7 +277,7 @@ class ImportRuleController extends AdminController
                 $type = $condition['type'];
 
                 foreach ($condition['configuration'] as $key => $value) {
-                    $conditionHeader = 'condition_' . $type . '___1___' . $key;
+                    $conditionHeader = 'condition_'.$type.'___1___'.$key;
 
                     if (!array_key_exists($conditionHeader, $countPerType)) {
                         $countPerType[$conditionHeader] = 0;
@@ -279,7 +286,7 @@ class ImportRuleController extends AdminController
                     $countPerType[$conditionHeader]++;
 
                     if ($countPerType[$conditionHeader] > 1) {
-                        $conditionHeader = 'condition_' . $type . '___'.$countPerType[$conditionHeader].'___' . $key;
+                        $conditionHeader = 'condition_'.$type.'___'.$countPerType[$conditionHeader].'___'.$key;
                     }
 
                     if (is_array($value)) {
@@ -294,7 +301,7 @@ class ImportRuleController extends AdminController
                 $type = $action['type'];
 
                 foreach ($action['configuration'] as $key => $value) {
-                    $actionHeader = 'action_' . $type . '___1___' . $key;
+                    $actionHeader = 'action_'.$type.'___1___'.$key;
 
                     if (!array_key_exists($actionHeader, $countPerType)) {
                         $countPerType[$actionHeader] = 0;
@@ -303,7 +310,7 @@ class ImportRuleController extends AdminController
                     $countPerType[$actionHeader]++;
 
                     if ($countPerType[$actionHeader] > 1) {
-                        $actionHeader = 'action_' . $type . '___'.$countPerType[$conditionHeader].'___' . $key;
+                        $actionHeader = 'action_'.$type.'___'.$countPerType[$actionHeader].'___'.$key;
                     }
 
                     if (is_array($value)) {
@@ -313,9 +320,6 @@ class ImportRuleController extends AdminController
                     $actions[$actionHeader] = $value;
                 }
             }
-
-            $exportActions = [];
-            $exportConditions = [];
 
             //Fill empty headers
             foreach ($headersCondition as $header) {
@@ -334,12 +338,16 @@ class ImportRuleController extends AdminController
                 $entry[$key] = $value;
             }
 
-            $entry = array_merge($entry, $exportConditions, $exportActions);
-            $result[] = $entry;
+            $result[] = $this->useSpoutLegacy ? $entry : \Box\Spout\Writer\Common\Creator\WriterEntityFactory::createRowFromArray(
+                $entry
+            );
         }
 
         //merge all headers
-        $headers = array_values(array_merge($headers, $headersCondition, $headersAction));
+        $headerValues = array_values(array_merge($headers, $headersCondition, $headersAction));
+        $headers = $this->useSpoutLegacy ? $headerValues : \Box\Spout\Writer\Common\Creator\WriterEntityFactory::createRowFromArray(
+            $headerValues
+        );
 
         //write data
         $writer->addRow($headers);
@@ -348,5 +356,14 @@ class ImportRuleController extends AdminController
 
         return new BinaryFileResponse($filePath);
     }
-}
 
+    protected function getXlsxReader(): \Box\Spout\Reader\XLSX\Reader
+    {
+        return \Box\Spout\Reader\Common\Creator\ReaderEntityFactory::createXLSXReader();
+    }
+
+    protected function getXlsxWriter(): \Box\Spout\Writer\XLSX\Writer
+    {
+        return \Box\Spout\Writer\Common\Creator\WriterEntityFactory::createXLSXWriter();
+    }
+}

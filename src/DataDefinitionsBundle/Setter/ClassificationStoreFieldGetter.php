@@ -12,24 +12,26 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Setter;
 
 use Pimcore\Model\DataObject;
-use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\DataObject\Classificationstore;
 use Pimcore\Tool;
+use Wvision\Bundle\DataDefinitionsBundle\Context\GetterContextInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Getter\GetterInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ExportMapping;
 
 class ClassificationStoreFieldGetter implements GetterInterface
 {
-    public function get(Concrete $object, ExportMapping $map, $data)
+    public function get(GetterContextInterface $context)
     {
-        $classificationStoreGetter = sprintf('get%s', ucfirst($map->getFromColumn()));
+        $classificationStoreGetter = sprintf('get%s', ucfirst($context->getMapping()->getFromColumn()));
 
-        if (method_exists($object, $classificationStoreGetter)) {
-            $classificationStore = $object->$classificationStoreGetter();
+        if (method_exists($context->getObject(), $classificationStoreGetter)) {
+            $classificationStore = $context->getObject()->$classificationStoreGetter();
 
-            if ($classificationStore instanceof \Pimcore\Model\DataObject\Classificationstore) {
+            if ($classificationStore instanceof Classificationstore) {
                 $groups = $classificationStore->getActiveGroups();
                 $values = [];
 
@@ -45,8 +47,11 @@ class ClassificationStoreFieldGetter implements GetterInterface
                         $keyConfig = DataObject\Classificationstore\KeyConfig::getById($keyRelation->getKeyId());
 
                         foreach (Tool::getValidLanguages() as $language) {
-                            $value = $classificationStore->getLocalizedKeyValue($groupId, $keyConfig->getId(),
-                                $language);
+                            $value = $classificationStore->getLocalizedKeyValue(
+                                $groupId,
+                                $keyConfig->getId(),
+                                $language
+                            );
 
                             if (is_null($value)) {
                                 continue;
@@ -64,5 +69,3 @@ class ClassificationStoreFieldGetter implements GetterInterface
         return null;
     }
 }
-
-

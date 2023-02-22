@@ -12,14 +12,16 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Provider;
 
-use Box\Spout\Common\Type;
-use Box\Spout\Reader\ReaderFactory;
+use Box\Spout\Common\Entity\Row;
 use Box\Spout\Reader\ReaderInterface;
-use Box\Spout\Writer\WriterFactory;
 use Box\Spout\Writer\WriterInterface;
 use Pimcore\Model\Asset;
+use Pimcore\Tool\Storage;
+use Wvision\Bundle\DataDefinitionsBundle\Filter\FilterInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Model\ExportDefinitionInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Model\ImportDefinitionInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping\FromColumn;
@@ -30,27 +32,24 @@ class ExcelProvider extends AbstractFileProvider implements ImportProviderInterf
 {
     use ArtifactProviderTrait;
 
-    /**
-     * @var string
-     */
-    private $exportPath;
+    private string $exportPath;
 
-    /**
-     * @var WriterInterface
-     */
-    private $writer;
+    private WriterInterface $writer;
+    protected bool $useSpoutLegacy = false;
 
     public function testData(array $configuration): bool
     {
         return true;
     }
 
-    public function getColumns(array $configuration)
+    public function getColumns(array $configuration): array
     {
         if ($configuration['exampleFile']) {
             $exampleFile = Asset::getById($configuration['exampleFile']);
             if (null !== $exampleFile) {
-                $reader = $this->createReader(PIMCORE_ASSET_DIRECTORY.$exampleFile->getFullPath());
+                $storage = Storage::get('asset');
+                $stream = $storage->readStream($exampleFile->getFullPath());
+                $reader = $this->createReader($stream);
 
                 $sheetIterator = $reader->getSheetIterator();
                 $sheetIterator->rewind();
@@ -62,15 +61,19 @@ class ExcelProvider extends AbstractFileProvider implements ImportProviderInterf
                 }
             }
         } elseif ($configuration['excelHeaders']) {
-            return $this->buildColumns(str_getcsv($configuration['excelHeaders']));
+            return $this->buildColumns(str_getcsv((string)$configuration['excelHeaders']));
         }
 
         return [];
     }
 
-    public function getData(array $configuration, ImportDefinitionInterface $definition, array $params, $filter = null)
-    {
-        $file = $this->getFile($params['file']);
+    public function getData(
+        array $configuration,
+        ImportDefinitionInterface $definition,
+        array $params,
+        FilterInterface $filter = null
+    ): ImportDataSetInterface {
+        $file = $this->getFile($params);
 
         $reader = $this->createReader($file);
         $sheetIterator = $reader->getSheetIterator();
@@ -80,31 +83,37 @@ class ExcelProvider extends AbstractFileProvider implements ImportProviderInterf
         $headers = null;
         $headersCount = null;
 
-        return new ImportDataSet($rowIterator, function (array $row) use (&$headers, &$headersCount) {
+        return new ImportDataSet($rowIterator, function (Row $row) use (&$headers, &$headersCount) {
+            $rowArray = $row->toArray();
+
             if (null === $headers) {
-                $headers = $row;
+                $headers = $rowArray;
                 $headersCount = count($headers);
 
                 return null;
             }
 
-            $rowCount = count($row);
+            $rowCount = count($rowArray);
             if ($rowCount < $headersCount) {
                 // append missing values
-                $row = array_pad($row, $headersCount, null);
+                $rowArray = array_pad($rowArray, (int)$headersCount, null);
             } elseif ($rowCount >= $headersCount) {
                 // remove overflow
-                $row = array_slice($row, 0, $headersCount);
+                $rowArray = array_slice($rowArray, 0, $headersCount);
             }
 
-            return array_combine($headers, $row);
+            return array_combine($headers, $rowArray);
         });
     }
 
-    public function addExportData(array $data, array $configuration, ExportDefinitionInterface $definition, array $params): void
-    {
+    public function addExportData(
+        array $data,
+        array $configuration,
+        ExportDefinitionInterface $definition,
+        array $params
+    ): void {
         $headers = null;
-        if (null === $this->writer) {
+        if (!isset($this->writer)) {
             $headers = array_keys($data);
         }
         $writer = $this->getWriter();
@@ -115,7 +124,11 @@ class ExcelProvider extends AbstractFileProvider implements ImportProviderInterf
                 $data[$key] = (string)$item;
             }
         }
-        $writer->addRow(array_values($data));
+        $writer->addRow(
+            $this->useSpoutLegacy ? array_values(
+                $data
+            ) : \Box\Spout\Writer\Common\Creator\WriterEntityFactory::createRowFromArray(array_values($data))
+        );
     }
 
     public function exportData(array $configuration, ExportDefinitionInterface $definition, array $params): void
@@ -127,8 +140,9 @@ class ExcelProvider extends AbstractFileProvider implements ImportProviderInterf
             return;
         }
 
-        $file = $this->getFile($params['file']);
-        rename($this->getExportPath(), $file);
+        $file = $this->getFile($params);
+        copy($this->getExportPath(), $file);
+        unlink($this->getExportPath());
     }
 
     public function provideArtifactStream($configuration, ExportDefinitionInterface $definition, $params)
@@ -136,9 +150,9 @@ class ExcelProvider extends AbstractFileProvider implements ImportProviderInterf
         return fopen($this->getExportPath(), 'rb');
     }
 
-    private function createReader(string $path): ReaderInterface
+    private function createReader($path): ReaderInterface
     {
-        $reader = ReaderFactory::create(Type::XLSX);
+        $reader = $this->getXlsxReader();
         $reader->open($path);
 
         return $reader;
@@ -146,8 +160,8 @@ class ExcelProvider extends AbstractFileProvider implements ImportProviderInterf
 
     private function getWriter(): WriterInterface
     {
-        if (null === $this->writer) {
-            $this->writer = WriterFactory::create(Type::XLSX);
+        if (!isset($this->writer)) {
+            $this->writer = $this->getXlsxWriter();
             $this->writer->openToFile($this->getExportPath());
         }
 
@@ -156,18 +170,13 @@ class ExcelProvider extends AbstractFileProvider implements ImportProviderInterf
 
     private function getExportPath(): string
     {
-        if (null === $this->exportPath) {
+        if (!isset($this->exportPath)) {
             $this->exportPath = tempnam(sys_get_temp_dir(), 'excel_export_provider');
         }
 
         return $this->exportPath;
     }
 
-    /**
-     * @param $row
-     *
-     * @return array
-     */
     private function buildColumns($row): array
     {
         $headers = [];
@@ -188,16 +197,24 @@ class ExcelProvider extends AbstractFileProvider implements ImportProviderInterf
         return $headers;
     }
 
-    /**
-     * @param array|null      $headers
-     * @param WriterInterface $writer
-     */
     private function addHeaders(?array $headers, WriterInterface $writer): void
     {
         if (null !== $headers) {
-            $writer->addRow($headers);
+            $writer->addRow(
+                $this->useSpoutLegacy ? $headers : \Box\Spout\Writer\Common\Creator\WriterEntityFactory::createRowFromArray(
+                    $headers
+                )
+            );
         }
     }
+
+    protected function getXlsxReader(): \Box\Spout\Reader\XLSX\Reader
+    {
+        return \Box\Spout\Reader\Common\Creator\ReaderEntityFactory::createXLSXReader();
+    }
+
+    protected function getXlsxWriter(): \Box\Spout\Writer\XLSX\Writer
+    {
+        return \Box\Spout\Writer\Common\Creator\WriterEntityFactory::createXLSXWriter();
+    }
 }
-
-

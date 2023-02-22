@@ -12,57 +12,58 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Setter;
 
-use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\DataObject\Classificationstore;
+use Wvision\Bundle\DataDefinitionsBundle\Context\GetterContextInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\SetterContextInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Getter\GetterInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ExportMapping;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
 
 class ClassificationStoreSetter implements SetterInterface, GetterInterface
 {
-    public function set(Concrete $object, $value, ImportMapping $map, $data)
+    public function set(SetterContextInterface $context): void
     {
-        $mapConfig = $map->getSetterConfig();
+        $mapConfig = $context->getMapping()->getSetterConfig();
         $fieldName = $mapConfig['field'];
         $keyConfig = (int)$mapConfig['keyConfig'];
         $groupConfig = (int)$mapConfig['groupConfig'];
 
         $classificationStoreGetter = sprintf('get%s', ucfirst($fieldName));
 
-        if (method_exists($object, $classificationStoreGetter)) {
-            $classificationStore = $object->$classificationStoreGetter();
+        if (method_exists($context->getObject(), $classificationStoreGetter)) {
+            $classificationStore = $context->getObject()->$classificationStoreGetter();
 
-            if ($classificationStore instanceof \Pimcore\Model\DataObject\Classificationstore) {
+            if ($classificationStore instanceof Classificationstore) {
                 $groups = $classificationStore->getActiveGroups();
 
-                if (!$groups[$groupConfig]) {
+                if (!($groups[$groupConfig] ?? false)) {
                     $groups[$groupConfig] = true;
                     $classificationStore->setActiveGroups($groups);
                 }
 
-                $classificationStore->setLocalizedKeyValue($groupConfig, $keyConfig, $value);
+                $classificationStore->setLocalizedKeyValue($groupConfig, $keyConfig, $context->getValue());
             }
         }
     }
 
-    public function get(Concrete $object, ExportMapping $map, $data)
+    public function get(GetterContextInterface $context)
     {
-        $mapConfig = $map->getGetterConfig();
+        $mapConfig = $context->getMapping()->getGetterConfig();
         $fieldName = $mapConfig['field'];
         $keyConfig = (int)$mapConfig['keyConfig'];
         $groupConfig = (int)$mapConfig['groupConfig'];
 
         $classificationStoreGetter = sprintf('get%s', ucfirst($fieldName));
 
-        if (method_exists($object, $classificationStoreGetter)) {
-            $classificationStore = $object->$classificationStoreGetter();
+        if (method_exists($context->getObject(), $classificationStoreGetter)) {
+            $classificationStore = $context->getObject()->$classificationStoreGetter();
 
-            if ($classificationStore instanceof \Pimcore\Model\DataObject\Classificationstore) {
+            if ($classificationStore instanceof Classificationstore) {
                 $groups = $classificationStore->getActiveGroups();
 
-                if (!$groups[$groupConfig]) {
+                if (!($groups[$groupConfig] ?? false)) {
                     $groups[$groupConfig] = true;
                     $classificationStore->setActiveGroups($groups);
                 }
@@ -74,5 +75,3 @@ class ClassificationStoreSetter implements SetterInterface, GetterInterface
         return null;
     }
 }
-
-

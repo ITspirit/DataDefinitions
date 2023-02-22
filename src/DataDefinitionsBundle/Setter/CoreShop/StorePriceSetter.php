@@ -12,16 +12,18 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Setter\CoreShop;
 
 use CoreShop\Component\Core\Model\StoreInterface;
 use CoreShop\Component\Store\Repository\StoreRepositoryInterface;
-use Pimcore\Model\DataObject\Concrete;
+use InvalidArgumentException;
+use Wvision\Bundle\DataDefinitionsBundle\Context\GetterContextInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\SetterContextInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Getter\GetterInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ExportMapping;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Setter\SetterInterface;
+use function is_array;
 
 class StorePriceSetter implements SetterInterface, GetterInterface
 {
@@ -32,11 +34,11 @@ class StorePriceSetter implements SetterInterface, GetterInterface
         $this->storeRepository = $storeRepository;
     }
 
-    public function set(Concrete $object, $value, ImportMapping $map, $data)
+    public function set(SetterContextInterface $context)
     {
-        $config = $map->getSetterConfig();
+        $config = $context->getMapping()->getSetterConfig();
 
-        if (!array_key_exists('stores', $config) || !\is_array($config['stores'])) {
+        if (!array_key_exists('stores', $config) || !is_array($config['stores'])) {
             return;
         }
 
@@ -44,24 +46,24 @@ class StorePriceSetter implements SetterInterface, GetterInterface
             $store = $this->storeRepository->find($store);
 
             if (!$store instanceof StoreInterface) {
-                throw new \InvalidArgumentException(sprintf('Store with ID %s not found', $config['store']));
+                throw new InvalidArgumentException(sprintf('Store with ID %s not found', $config['store']));
             }
 
-            $setter = sprintf('set%s', ucfirst($map->getToColumn()));
+            $setter = sprintf('set%s', ucfirst($context->getMapping()->getToColumn()));
 
-            if (!method_exists($object, $setter)) {
-                throw new \InvalidArgumentException(sprintf('Expected a %s function but can not find it', $setter));
+            if (!method_exists($context->getObject(), $setter)) {
+                throw new InvalidArgumentException(sprintf('Expected a %s function but can not find it', $setter));
             }
 
-            $object->$setter($value, $store);
+            $context->getObject()->$setter($context->getValue(), $store);
         }
     }
 
-    public function get(Concrete $object, ExportMapping $map, $data)
+    public function get(GetterContextInterface $context)
     {
-        $config = $map->getGetterConfig();
+        $config = $context->getMapping()->getGetterConfig();
 
-        if (!array_key_exists('stores', $config) || !\is_array($config['stores'])) {
+        if (!array_key_exists('stores', $config) || !is_array($config['stores'])) {
             return [];
         }
 
@@ -71,20 +73,18 @@ class StorePriceSetter implements SetterInterface, GetterInterface
             $store = $this->storeRepository->find($store);
 
             if (!$store instanceof StoreInterface) {
-                throw new \InvalidArgumentException(sprintf('Store with ID %s not found', $config['store']));
+                throw new InvalidArgumentException(sprintf('Store with ID %s not found', $config['store']));
             }
 
-            $getter = sprintf('get%s', ucfirst($map->getFromColumn()));
+            $getter = sprintf('get%s', ucfirst($context->getMapping()->getFromColumn()));
 
-            if (!method_exists($object, $getter)) {
-                throw new \InvalidArgumentException(sprintf('Expected a %s function but can not find it', $getter));
+            if (!method_exists($context->getObject(), $getter)) {
+                throw new InvalidArgumentException(sprintf('Expected a %s function but can not find it', $getter));
             }
 
-            $values[$store->getId()] = $object->$getter($store);
+            $values[$store->getId()] = $context->getObject()->$getter($store);
         }
 
         return $values;
     }
 }
-
-

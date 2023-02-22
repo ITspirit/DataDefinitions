@@ -12,21 +12,13 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Runner;
 
-use Pimcore\Model\DataObject\Concrete;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\RunnerContextInterface;
 
 interface SaveRunnerInterface extends RunnerInterface
 {
-    /**
-     * @param Concrete            $object
-     * @param                     $data
-     * @param DataDefinitionInterface $definition
-     * @param                     $params
-     * @return boolean
-     */
-    public function shouldSaveObject(Concrete $object, $data, DataDefinitionInterface $definition, $params);
+    public function shouldSaveObject(RunnerContextInterface $context);
 }
-
-

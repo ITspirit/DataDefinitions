@@ -12,55 +12,51 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Interpreter;
 
 use CoreShop\Component\Registry\ServiceRegistryInterface;
-use Pimcore\Model\DataObject\Concrete;
 use Webmozart\Assert\Assert;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareTrait;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\ContextFactoryInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContextInterface;
 
-final class IteratorInterpreter implements InterpreterInterface, DataSetAwareInterface
+final class IteratorInterpreter implements InterpreterInterface
 {
-    use DataSetAwareTrait;
-
-    private $interpreterRegistry;
-
-    public function __construct(ServiceRegistryInterface $interpreterRegistry)
-    {
-        $this->interpreterRegistry = $interpreterRegistry;
+    public function __construct(
+        private ServiceRegistryInterface $interpreterRegistry,
+        private ContextFactoryInterface $contextFactory
+    ) {
     }
 
-    public function interpret(
-        Concrete $object,
-        $value,
-        MappingInterface $map,
-        $data,
-        DataDefinitionInterface $definition,
-        $params,
-        $configuration
-    ) {
-        if (null === $value) {
+    public function interpret(InterpreterContextInterface $context): mixed
+    {
+        if (null === $context->getValue()) {
             return [];
         }
-        Assert::isArray($value, 'IteratorInterpreter can only be used with array values');
+        Assert::isArray($context->getValue(), 'IteratorInterpreter can only be used with array values');
 
-        $interpreter = $configuration['interpreter'];
+        $interpreter = $context->getConfiguration()['interpreter'];
         $interpreterObject = $this->interpreterRegistry->get($interpreter['type']);
 
-        if ($interpreterObject instanceof DataSetAwareInterface) {
-            $interpreterObject->setDataSet($this->getDataSet());
+        $value = $context->getValue();
+        $result = [];
+
+        foreach ($value as $val) {
+            $context = $this->contextFactory->createInterpreterContext(
+                $context->getDefinition(),
+                $context->getParams(),
+                $interpreter['interpreterConfig'],
+                $context->getDataRow(),
+                $context->getDataSet(),
+                $context->getObject(),
+                $val,
+                $context->getMapping()
+            );
+
+            $result[] = $interpreterObject->interpret($context);
         }
 
-        foreach ($value as &$val) {
-            $val = $interpreterObject->interpret($object, $val, $map, $data, $definition, $params,
-                $interpreter['interpreterConfig']);
-        }
-
-        return $value;
+        return $result;
     }
 }
-
-

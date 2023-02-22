@@ -12,30 +12,29 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Provider;
 
-class ImportDataSet implements ImportDataSetInterface
+use Closure;
+use Iterator;
+
+class ImportDataSet implements ImportDataSetInterface, \Countable
 {
-    /**
-     * @var /Iterator
-     */
-    private $iterator;
+    private Iterator $iterator;
 
     /**
      * @var int|false
      */
-    private $countAll;
+    private int|false $countAll;
 
-    /**
-     * @var null|\Closure
-     */
-    private $processor;
+    private ?Closure $processor;
 
-    public function __construct(\Iterator $iterator, \Closure $processor = null)
+    public function __construct(Iterator $iterator, Closure $processor = null)
     {
         $this->iterator = $iterator;
         $this->countAll = false;
-        $this->processor = $processor ?? function ($current) {
+        $this->processor = $processor ?? static function ($current) {
                 return $current;
             };
     }
@@ -46,7 +45,7 @@ class ImportDataSet implements ImportDataSetInterface
      * @return mixed Can return any type.
      * @since 5.0.0
      */
-    public function current()
+    public function current(): mixed
     {
         return ($this->processor)($this->iterator->current());
     }
@@ -57,7 +56,7 @@ class ImportDataSet implements ImportDataSetInterface
      * @return void Any returned value is ignored.
      * @since 5.0.0
      */
-    public function next()
+    public function next(): void
     {
         $this->iterator->next();
     }
@@ -68,7 +67,7 @@ class ImportDataSet implements ImportDataSetInterface
      * @return mixed scalar on success, or null on failure.
      * @since 5.0.0
      */
-    public function key()
+    public function key(): mixed
     {
         return $this->iterator->key();
     }
@@ -80,7 +79,7 @@ class ImportDataSet implements ImportDataSetInterface
      * Returns true on success or false on failure.
      * @since 5.0.0
      */
-    public function valid()
+    public function valid(): bool
     {
         return $this->iterator->valid();
     }
@@ -91,7 +90,7 @@ class ImportDataSet implements ImportDataSetInterface
      * @return void Any returned value is ignored.
      * @since 5.0.0
      */
-    public function rewind()
+    public function rewind(): void
     {
         $this->iterator->rewind();
     }
@@ -105,7 +104,7 @@ class ImportDataSet implements ImportDataSetInterface
      * The return value is cast to an integer.
      * @since 5.1.0
      */
-    public function count()
+    public function count(): int
     {
         if (false === $this->countAll) {
             $this->rewind();
@@ -115,5 +114,3 @@ class ImportDataSet implements ImportDataSetInterface
         return $this->countAll;
     }
 }
-
-

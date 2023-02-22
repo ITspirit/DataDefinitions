@@ -12,35 +12,19 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Interpreter;
 
-use Pimcore\Model\DataObject\Concrete;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Service\Placeholder;
+use Pimcore\Model\Asset;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContextInterface;
 
 class AssetByPathInterpreter implements InterpreterInterface
 {
-    protected $placeholderService;
-
-    public function __construct(Placeholder $placeholderService)
+    public function interpret(InterpreterContextInterface $context): mixed
     {
-        $this->placeholderService = $placeholderService;
-    }
+        $assetFullPath = $context->getConfiguration()['path'].'/'.$context->getValue();
 
-    public function interpret(
-        Concrete $object,
-        $value,
-        MappingInterface $map,
-        $data,
-        DataDefinitionInterface $definition,
-        $params,
-        $configuration
-    ) {
-        $assetFullPath = $configuration['path']."/".$value;
-
-        return \Pimcore\Model\Asset::getByPath($assetFullPath);
+        return Asset::getByPath($assetFullPath);
     }
 }
-
-

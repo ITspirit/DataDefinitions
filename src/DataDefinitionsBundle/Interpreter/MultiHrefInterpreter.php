@@ -12,29 +12,19 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Interpreter;
 
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Tool;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareTrait;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContextInterface;
 
-class MultiHrefInterpreter implements InterpreterInterface, DataSetAwareInterface
+class MultiHrefInterpreter implements InterpreterInterface
 {
-    use DataSetAwareTrait;
-
-    public function interpret(
-        Concrete $object,
-        $value,
-        MappingInterface $map,
-        $data,
-        DataDefinitionInterface $definition,
-        $params,
-        $configuration
-    ) {
-        $objectClass = $configuration['class'];
+    public function interpret(InterpreterContextInterface $context): mixed
+    {
+        $objectClass = $context->getConfiguration()['class'];
 
         $class = 'Pimcore\Model\DataObject\\'.ucfirst($objectClass);
 
@@ -42,7 +32,7 @@ class MultiHrefInterpreter implements InterpreterInterface, DataSetAwareInterfac
             $class = new $class();
 
             if ($class instanceof Concrete) {
-                $ret = $class::getById($value);
+                $ret = $class::getById($context->getValue());
 
                 if ($ret instanceof Concrete) {
                     return [$ret];
@@ -50,8 +40,6 @@ class MultiHrefInterpreter implements InterpreterInterface, DataSetAwareInterfac
             }
         }
 
-        return $value;
+        return $context->getValue();
     }
 }
-
-

@@ -12,36 +12,13 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Interpreter;
 
-use Pimcore\Model\DataObject\Concrete;
-use Wvision\Bundle\DataDefinitionsBundle\Exception\DoNotSetException;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContextInterface;
 
 interface InterpreterInterface
 {
-    /**
-     * @param Concrete            $object
-     * @param                     $value
-     * @param MappingInterface    $map
-     * @param array               $data
-     * @param DataDefinitionInterface $definition
-     * @param array               $params
-     * @param array               $configuration
-     * @return mixed
-     *
-     * @throws DoNotSetException
-     */
-    public function interpret(
-        Concrete $object,
-        $value,
-        MappingInterface $map,
-        $data,
-        DataDefinitionInterface $definition,
-        $params,
-        $configuration
-    );
+    public function interpret(InterpreterContextInterface $context): mixed;
 }
-
-

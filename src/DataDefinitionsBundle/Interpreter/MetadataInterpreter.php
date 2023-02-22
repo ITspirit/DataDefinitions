@@ -12,42 +12,34 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Interpreter;
 
-use Pimcore\Model\DataObject\Concrete;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
 use Pimcore\Model\DataObject\Data\ElementMetadata;
 use Pimcore\Model\DataObject\Data\ObjectMetadata;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContextInterface;
 
 class MetadataInterpreter implements InterpreterInterface
 {
-    public function interpret(
-        Concrete $object,
-        $value,
-        MappingInterface $map,
-        $data,
-        DataDefinitionInterface $definition,
-        $params,
-        $configuration
-    ) {
-        $class = "\\Pimcore\\Model\\DataObject\\Data\\" . $configuration['class'];
-        $fieldname = $map->getToColumn();
+    public function interpret(InterpreterContextInterface $context): mixed
+    {
+        $class = "\\Pimcore\\Model\\DataObject\\Data\\".$context->getConfiguration()['class'];
+        $fieldname = $context->getMapping()->getToColumn();
 
-        $metadata = $configuration['metadata'];
-        $metadata = json_decode($metadata, true);
+        $metadata = $context->getConfiguration()['metadata'];
+        $metadata = json_decode($metadata, true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($metadata)) {
             $metadata = [];
         }
 
-        $elementMetadata = new $class($fieldname, array_keys($metadata), $value);
+        /** @var ElementMetadata|ObjectMetadata $elementMetadata */
+        $elementMetadata = new $class($fieldname, array_keys($metadata), $context->getValue());
         foreach ($metadata as $metadataKey => $metadataValue) {
-            $setter = 'set' . ucfirst($metadataKey);
+            $setter = 'set'.ucfirst($metadataKey);
             $elementMetadata->$setter($metadataValue);
         }
 
         return $elementMetadata;
     }
 }
-
-

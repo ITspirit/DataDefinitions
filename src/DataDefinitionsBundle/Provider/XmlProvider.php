@@ -12,35 +12,32 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Provider;
 
+use Pimcore\File;
 use Pimcore\Model\Asset;
+use Pimcore\Tool\Storage;
 use Symfony\Component\Console\Exception\RuntimeException;
 use Symfony\Component\Process\Process;
+use Wvision\Bundle\DataDefinitionsBundle\Filter\FilterInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Model\ExportDefinitionInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Model\ImportDefinitionInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping\FromColumn;
 use Wvision\Bundle\DataDefinitionsBundle\ProcessManager\ArtifactGenerationProviderInterface;
 use Wvision\Bundle\DataDefinitionsBundle\ProcessManager\ArtifactProviderTrait;
+use XMLWriter;
+use function count;
 
 class XmlProvider extends AbstractFileProvider implements ImportProviderInterface, ExportProviderInterface, ArtifactGenerationProviderInterface
 {
     use ArtifactProviderTrait;
 
-    /** @var \XMLWriter */
-    private $writer;
+    private XMLWriter $writer;
+    private string $exportPath;
+    private int $exportCounter = 0;
 
-    /** @var string */
-    private $exportPath;
-
-    /** @var int */
-    private $exportCounter = 0;
-
-    /**
-     * @param $xml
-     * @param $xpath
-     * @return mixed
-     */
     protected function convertXmlToArray($xml, $xpath)
     {
         $xml = simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NOCDATA);
@@ -60,18 +57,12 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
         return $array;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function testData(array $configuration): bool
     {
         return true;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getColumns(array $configuration)
+    public function getColumns(array $configuration): array
     {
         $exampleFile = Asset::getById($configuration['exampleFile']);
         $rows = $this->convertXmlToArray($exampleFile->getData(), $configuration['exampleXPath']);
@@ -79,7 +70,7 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
 
         $returnHeaders = [];
 
-        if (\count($rows) > 0) {
+        if (count($rows) > 0) {
             $firstRow = $rows;
 
             foreach ($firstRow as $key => $val) {
@@ -94,19 +85,24 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
         return $returnHeaders;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getData(array $configuration, ImportDefinitionInterface $definition, array $params, $filter = null)
-    {
-        $file = $this->getFile($params['file']);
+    public function getData(
+        array $configuration,
+        ImportDefinitionInterface $definition,
+        array $params,
+        FilterInterface $filter = null
+    ): ImportDataSetInterface {
+        $file = $this->getFile($params);
         $xml = file_get_contents($file);
 
-        return $this->convertXmlToArray($xml, $configuration['xPath']);
+        return new ArrayImportDataSet($this->convertXmlToArray($xml, $configuration['xPath']));
     }
 
-    public function addExportData(array $data, array $configuration, ExportDefinitionInterface $definition, array $params): void
-    {
+    public function addExportData(
+        array $data,
+        array $configuration,
+        ExportDefinitionInterface $definition,
+        array $params
+    ): void {
         $writer = $this->getXMLWriter();
 
         $writer->startElement('object');
@@ -131,21 +127,35 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
         // XSLT transformation support
         if (array_key_exists('xsltPath', $configuration) && $configuration['xsltPath']) {
             $dataPath = $this->getExportPath();
-            $xstlPath = $file = sprintf('%s/%s', PIMCORE_ASSET_DIRECTORY, ltrim($configuration['xsltPath'], '/'));
 
-            if (!file_exists($xstlPath)) {
-                throw new RuntimeException(sprintf('Passed XSLT file "%1$s" not found', $configuration['xsltPath']));
+            $storage = Storage::get('asset');
+            $path = ltrim($configuration['xsltPath'], '/');
+
+            if (!$storage->fileExists($path)) {
+                throw new RuntimeException(sprintf('Passed XSLT file "%1$s" not found', $path));
             }
 
-            if (!is_readable($xstlPath)) {
-                throw new RuntimeException(sprintf('Passed XSLT file "%1$s" not readable', $configuration['xsltPath']));
-            }
+            $extension = File::getFileExtension($configuration['xsltPath']);
+            $workingPath = File::getLocalTempFilePath($extension);
+            file_put_contents($workingPath, $storage->read($path));
 
             $this->exportPath = tempnam(sys_get_temp_dir(), 'xml_export_xslt_transformation');
-            $cmd = sprintf('xsltproc -v %1$s %2$s > %3$s', $xstlPath, $dataPath, $this->getExportPath());
+            $cmd = [
+                'xsltproc',
+                '-v',
+                '--noout',
+                '--output',
+                $this->getExportPath(),
+                $workingPath,
+                $dataPath,
+            ];
             $process = new Process($cmd);
             $process->setTimeout(null);
             $process->run();
+
+            if (!stream_is_local($path)) {
+                unlink($workingPath);
+            }
 
             if (false === $process->isSuccessful()) {
                 throw new RuntimeException($process->getErrorOutput());
@@ -156,8 +166,9 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
             return;
         }
 
-        $file = $this->getFile($params['file']);
-        rename($this->getExportPath(), $file);
+        $file = $this->getFile($params);
+        copy($this->getExportPath(), $file);
+        unlink($this->getExportPath());
     }
 
     public function provideArtifactStream($configuration, ExportDefinitionInterface $definition, $params)
@@ -165,10 +176,10 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
         return fopen($this->getExportPath(), 'rb');
     }
 
-    private function getXMLWriter(): \XMLWriter
+    private function getXMLWriter(): XMLWriter
     {
-        if (null === $this->writer) {
-            $this->writer = new \XMLWriter();
+        if (!isset($this->writer)) {
+            $this->writer = new XMLWriter();
             $this->writer->openMemory();
             $this->writer->setIndent(true);
             $this->writer->startDocument('1.0', 'UTF-8');
@@ -182,19 +193,19 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
 
     private function getExportPath(): string
     {
-        if (null === $this->exportPath) {
+        if (!isset($this->exportPath)) {
             $this->exportPath = tempnam(sys_get_temp_dir(), 'xml_export_provider');
         }
 
         return $this->exportPath;
     }
 
-    private function flush(\XMLWriter $writer): void
+    private function flush(XMLWriter $writer): void
     {
         file_put_contents($this->getExportPath(), $writer->flush(true), FILE_APPEND);
     }
 
-    private function serialize(\XMLWriter $writer, ?string $name, $data, ?int $key = null): void
+    private function serialize(XMLWriter $writer, ?string $name, $data, ?int $key = null): void
     {
         if (is_scalar($data)) {
             $writer->startElement('property');
@@ -202,12 +213,13 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
                 $writer->writeAttribute('name', $name);
             }
             if (null !== $key) {
-                $writer->writeAttribute('key', $key);
+                $writer->writeAttribute('key', (string)$key);
             }
             if (is_string($data)) {
                 $writer->writeCdata($data);
             } else {
-                $writer->text($data);
+                // TODO: should be more elaborate/exact for "non-string" scalar values
+                $writer->text((string)$data);
             }
             $writer->endElement();
         } else {
@@ -217,7 +229,7 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
                     $writer->writeAttribute('name', $name);
                 }
                 if (null !== $key) {
-                    $writer->writeAttribute('key', $key);
+                    $writer->writeAttribute('key', (string)$key);
                 }
                 $this->serializeCollection($writer, $data);
                 $writer->endElement();
@@ -228,7 +240,7 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
                         $writer->writeAttribute('name', $name);
                     }
                     if (null !== $key) {
-                        $writer->writeAttribute('key', $key);
+                        $writer->writeAttribute('key', (string)$key);
                     }
                     $writer->writeCdata((string)$data);
                     $writer->endElement();
@@ -237,7 +249,7 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
         }
     }
 
-    private function serializeCollection(\XMLWriter $writer, array $data): void
+    private function serializeCollection(XMLWriter $writer, array $data): void
     {
         foreach ($data as $key => $value) {
             if (is_numeric($key)) {
@@ -248,5 +260,3 @@ class XmlProvider extends AbstractFileProvider implements ImportProviderInterfac
         }
     }
 }
-
-

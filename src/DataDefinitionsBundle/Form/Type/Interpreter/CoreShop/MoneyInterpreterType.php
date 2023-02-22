@@ -1,5 +1,6 @@
 <?php
 
+declare(strict_types=1);
 
 namespace Wvision\Bundle\DataDefinitionsBundle\Form\Type\Interpreter\CoreShop;
 
@@ -17,18 +18,20 @@ final class MoneyInterpreterType extends AbstractType
         $builder
             ->add('isFloat', CheckboxType::class)
             ->add('currency', CurrencyChoiceType::class)
-            ->addModelTransformer(new CallbackTransformer(
-                function ($value) {
-                    return $value;
-                },
-                function ($value) {
+            ->addModelTransformer(
+                new CallbackTransformer(
+                    function ($value) {
+                        return $value;
+                    },
+                    function ($value) {
 
-                    if (isset($value['currency']) && $value['currency'] instanceof CurrencyInterface) {
-                        $value['currency'] = $value['currency']->getId();
+                        if (isset($value['currency']) && $value['currency'] instanceof CurrencyInterface) {
+                            $value['currency'] = $value['currency']->getId();
+                        }
+
+                        return $value;
                     }
-
-                    return $value;
-                }
-            ));
+                )
+            );
     }
 }

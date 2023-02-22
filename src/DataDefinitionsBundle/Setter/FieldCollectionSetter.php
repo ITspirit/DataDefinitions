@@ -12,22 +12,23 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Setter;
 
-use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\DataObject\Fieldcollection;
 use Pimcore\Model\DataObject\Fieldcollection\Data\AbstractData as AbstractFieldCollection;
+use Wvision\Bundle\DataDefinitionsBundle\Context\GetterContextInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\SetterContextInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Getter\GetterInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ExportMapping;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
 
 class FieldCollectionSetter implements SetterInterface, GetterInterface
 {
-    public function set(Concrete $object, $value, ImportMapping $map, $data)
+    public function set(SetterContextInterface $context): void
     {
-        $keyParts = explode('~', $map->getToColumn());
+        $keyParts = explode('~', $context->getMapping()->getToColumn());
 
-        $config = $map->getSetterConfig();
+        $config = $context->getMapping()->getSetterConfig();
         $keys = $config['keys'];
         $fieldName = $config['field'];
         $class = $config['class'];
@@ -48,20 +49,24 @@ class FieldCollectionSetter implements SetterInterface, GetterInterface
         $getter = sprintf('get%s', ucfirst($fieldName));
         $setter = sprintf('set%s', ucfirst($fieldName));
 
-        if (method_exists($object, $getter)) {
-            $fieldCollection = $object->$getter();
+        if (method_exists($context->getObject(), $getter)) {
+            $fieldCollection = $context->getObject()->$getter();
 
-            if (!$fieldCollection instanceof \Pimcore\Model\DataObject\Fieldcollection) {
-                $fieldCollection = new \Pimcore\Model\DataObject\Fieldcollection();
+            if (!$fieldCollection instanceof Fieldcollection) {
+                $fieldCollection = new Fieldcollection();
             }
 
             $items = $fieldCollection->getItems();
             $found = false;
 
             foreach ($items as $item) {
-                if (is_a($item, $fieldCollectionClass) && $this->isValidKey($mappedKeys, $item, $data)) {
+                if (is_a($item, $fieldCollectionClass) && $this->isValidKey(
+                        $mappedKeys,
+                        $item,
+                        $context->getDataRow()
+                    )) {
                     if ($item instanceof AbstractFieldCollection) {
-                        $item->setValue($field, $value);
+                        $item->setValue($field, $context->getValue());
                     }
 
                     $found = true;
@@ -74,24 +79,24 @@ class FieldCollectionSetter implements SetterInterface, GetterInterface
 
                 if ($item instanceof AbstractFieldCollection) {
                     foreach ($mappedKeys as $key) {
-                        $item->setValue($key['to'], $data[$key['from']]);
+                        $item->setValue($key['to'], $context->getDataRow()[$key['from']]);
                     }
 
-                    $item->setValue($field, $value);
+                    $item->setValue($field, $context->getValue());
 
                     $fieldCollection->add($item);
                 }
             }
 
-            $object->$setter($fieldCollection);
+            $context->getObject()->$setter($fieldCollection);
         }
     }
 
-    public function get(Concrete $object, ExportMapping $map, $data)
+    public function get(GetterContextInterface $context)
     {
-        $keyParts = explode('~', $map->getFromColumn());
+        $keyParts = explode('~', $context->getMapping()->getFromColumn());
 
-        $config = $map->getGetterConfig();
+        $config = $context->getMapping()->getGetterConfig();
         $fieldName = $config['field'];
         $class = $config['class'];
         $fieldCollectionClass = 'Pimcore\Model\DataObject\Fieldcollection\Data\\'.ucfirst($class);
@@ -99,10 +104,10 @@ class FieldCollectionSetter implements SetterInterface, GetterInterface
 
         $getter = sprintf('get%s', ucfirst($fieldName));
 
-        if (method_exists($object, $getter)) {
-            $fieldCollection = $object->$getter();
+        if (method_exists($context->getObject(), $getter)) {
+            $fieldCollection = $context->getObject()->$getter();
 
-            if (!$fieldCollection instanceof \Pimcore\Model\DataObject\Fieldcollection) {
+            if (!$fieldCollection instanceof Fieldcollection) {
                 return null;
             }
 
@@ -131,14 +136,7 @@ class FieldCollectionSetter implements SetterInterface, GetterInterface
         return null;
     }
 
-    /**
-     * @param array $keys
-     * @param       $fieldcollection
-     * @param       $data
-     * @return boolean
-     * @throws \Exception
-     */
-    protected function isValidKey(array $keys, AbstractFieldCollection $fieldcollection, $data)
+    protected function isValidKey(array $keys, AbstractFieldCollection $fieldcollection, array $data): bool
     {
         foreach ($keys as $key) {
             $getter = sprintf('get%s', ucfirst($key['to']));
@@ -157,5 +155,3 @@ class FieldCollectionSetter implements SetterInterface, GetterInterface
         return true;
     }
 }
-
-

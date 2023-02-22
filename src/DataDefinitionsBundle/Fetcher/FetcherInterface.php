@@ -12,34 +12,20 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Fetcher;
 
-use Wvision\Bundle\DataDefinitionsBundle\Model\ExportDefinitionInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\FetcherContextInterface;
 
 interface FetcherInterface
 {
-    /**
-     * @param ExportDefinitionInterface $definition
-     * @param                           $params
-     * @param int                       $limit
-     * @param int                       $offset
-     * @param                           $configuration
-     * @return array
-     */
     public function fetch(
-        ExportDefinitionInterface $definition,
-        $params,
+        FetcherContextInterface $context,
         int $limit,
-        int $offset,
-        array $configuration
+        int $offset
     );
 
-    /**+
-     * @param ExportDefinitionInterface $definition
-     * @param                           $params
-     * @param                           $configuration
-     * @return int
-     */
-    public function count(ExportDefinitionInterface $definition, $params, array $configuration): int;
+    public function count(FetcherContextInterface $context): int;
 }
 

@@ -12,32 +12,20 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Interpreter;
 
-use Pimcore\Model\DataObject\Concrete;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareTrait;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
+use Pimcore\Model\DataObject\Data\QuantityValue;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContextInterface;
 
-class QuantityValueInterpreter implements InterpreterInterface, DataSetAwareInterface
+class QuantityValueInterpreter implements InterpreterInterface
 {
-    use DataSetAwareTrait;
+    public function interpret(InterpreterContextInterface $context): mixed
+    {
+        $value = $context->getValue() !== '' ? $context->getValue() : null;
+        $unit = $context->getConfiguration()['unit'];
 
-    public function interpret(
-        Concrete $object,
-        $value,
-        MappingInterface $map,
-        $data,
-        DataDefinitionInterface $definition,
-        $params,
-        $configuration
-    ) {
-        $value = $value !== '' ? $value : null;
-        $unit = $configuration['unit'];
-
-        return new \Pimcore\Model\DataObject\Data\QuantityValue($value, $unit);
+        return new QuantityValue($value, $unit);
     }
 }
-
-

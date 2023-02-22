@@ -12,6 +12,8 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\ProcessManager;
 
 use Pimcore\Model\Asset;
@@ -21,7 +23,7 @@ trait ArtifactProviderTrait
 {
     public function generateArtifact($configuration, ExportDefinitionInterface $definition, $params): ?Asset
     {
-        if (!$params['artifact']) {
+        if (!isset($params['artifact'])) {
             return null;
         }
 
@@ -43,17 +45,21 @@ trait ArtifactProviderTrait
         $artifact->setFilename(Asset\Service::getUniqueKey($artifact));
         $artifact->save();
 
-        fclose($stream);
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
 
         return $artifact;
     }
 
     /**
-     * @param                           $configuration
+     * @param array $configuration
      * @param ExportDefinitionInterface $definition
-     * @param                           $params
+     * @param array $params
      */
-    public abstract function provideArtifactStream($configuration, ExportDefinitionInterface $definition, $params);
+    abstract public function provideArtifactStream(
+        array $configuration,
+        ExportDefinitionInterface $definition,
+        array $params
+    );
 }
-
-

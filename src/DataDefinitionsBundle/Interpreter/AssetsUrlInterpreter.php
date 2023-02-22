@@ -12,26 +12,30 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Interpreter;
 
-use Pimcore\Model\DataObject\Concrete;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContext;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContextInterface;
 
 class AssetsUrlInterpreter extends AssetUrlInterpreter
 {
-    public function interpret(
-        Concrete $object,
-        $value,
-        MappingInterface $map,
-        $data,
-        DataDefinitionInterface $definition,
-        $params,
-        $configuration
-    ) {
+    public function interpret(InterpreterContextInterface $context): mixed
+    {
         $assets = [];
-        foreach ((array)$value as $item) {
-            $asset = parent::interpret($object, $item, $map, $data, $definition, $params, $configuration);
+        foreach ((array)$context->getValue() as $item) {
+            $childContext = new InterpreterContext(
+                $context->getDefinition(),
+                $context->getParams(),
+                $context->getConfiguration(),
+                $context->getDataRow(),
+                $context->getDataSet(),
+                $context->getObject(),
+                $item,
+                $context->getMapping()
+            );
+            $asset = parent::interpret($childContext);
 
             if ($asset) {
                 $assets[] = $asset;
@@ -41,5 +45,3 @@ class AssetsUrlInterpreter extends AssetUrlInterpreter
         return $assets ?: null;
     }
 }
-
-

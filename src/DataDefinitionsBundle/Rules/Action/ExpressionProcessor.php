@@ -12,6 +12,8 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Rules\Action;
 
 use Pimcore\Model\DataObject\Concrete;
@@ -21,8 +23,8 @@ use Wvision\Bundle\DataDefinitionsBundle\Rules\Model\ImportRuleInterface;
 
 class ExpressionProcessor implements ImportRuleProcessorInterface
 {
-    protected $expressionLanguage;
-    protected $container;
+    protected ExpressionLanguage $expressionLanguage;
+    protected ContainerInterface $container;
 
     public function __construct(ExpressionLanguage $expressionLanguage, ContainerInterface $container)
     {
@@ -30,8 +32,13 @@ class ExpressionProcessor implements ImportRuleProcessorInterface
         $this->container = $container;
     }
 
-    public function apply(ImportRuleInterface $rule, Concrete $concrete, $value, array $configuration, array $params = [])
-    {
+    public function apply(
+        ImportRuleInterface $rule,
+        Concrete $concrete,
+        $value,
+        array $configuration,
+        array $params = []
+    ) {
         $expression = $configuration['expression'];
 
         return $this->expressionLanguage->evaluate(

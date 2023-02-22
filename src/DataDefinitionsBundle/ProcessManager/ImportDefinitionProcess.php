@@ -12,6 +12,8 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\ProcessManager;
 
 use Pimcore\Tool\Admin;
@@ -20,24 +22,10 @@ use ProcessManagerBundle\Process\Pimcore;
 
 final class ImportDefinitionProcess extends Pimcore
 {
-    public function run(ExecutableInterface $executable, array $params = null)
+    use DataDefinitionProcessTrait;
+
+    public function run(ExecutableInterface $executable, array $params = []): int
     {
-        $settings = $executable->getSettings();
-        $params = json_decode($settings['params'], true);
-
-        $currentUser = Admin::getCurrentUser();
-
-        if ($currentUser && !isset($params['userId'])) {
-            $params['userId'] = $currentUser->getId();
-        }
-
-        $settings['command'] = sprintf('data-definitions:import -d %s -p "%s"', $settings['definition'],
-            addslashes(json_encode($params)));
-
-        $executable->setSettings($settings);
-
-        return parent::run($executable);
+        return $this->runDefinition('data-definitions:import', $executable, $params);
     }
 }
-
-

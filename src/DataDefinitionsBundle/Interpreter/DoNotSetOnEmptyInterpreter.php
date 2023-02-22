@@ -12,38 +12,25 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Interpreter;
 
-use Pimcore\Model\DataObject\Concrete;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContextInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Exception\DoNotSetException;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareTrait;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
 
-class DoNotSetOnEmptyInterpreter implements InterpreterInterface, DataSetAwareInterface
+class DoNotSetOnEmptyInterpreter implements InterpreterInterface
 {
-    use DataSetAwareTrait;
-
-    public function interpret(
-        Concrete $object,
-        $value,
-        MappingInterface $map,
-        $data,
-        DataDefinitionInterface $definition,
-        $params,
-        $configuration
-    ) {
-        if ($value === "" || $value === null) {
+    public function interpret(InterpreterContextInterface $context): mixed
+    {
+        if ($context->getValue() === "" || $context->getValue() === null) {
             throw new DoNotSetException();
         }
 
-        if (is_array($value) && count($value) === 0) {
+        if (is_array($context->getValue()) && count($context->getValue()) === 0) {
             throw new DoNotSetException();
         }
 
-        return $value;
+        return $context->getValue();
     }
 }
-
-

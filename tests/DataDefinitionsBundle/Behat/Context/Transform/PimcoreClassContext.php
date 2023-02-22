@@ -15,7 +15,6 @@
 namespace Wvision\Bundle\DataDefinitionsBundle\Behat\Context\Transform;
 
 use Behat\Behat\Context\Context;
-use CoreShop\Component\Pimcore\DataObject\ClassLoader;
 use Wvision\Bundle\DataDefinitionsBundle\Behat\Service\ClassStorageInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Behat\Service\SharedStorageInterface;
 use Pimcore\Cache\Runtime;
@@ -27,20 +26,9 @@ use Webmozart\Assert\Assert;
 
 final class PimcoreClassContext implements Context
 {
-    /**
-     * @var SharedStorageInterface
-     */
     private $sharedStorage;
-
-    /**
-     * @var ClassStorageInterface
-     */
     private $classStorage;
 
-    /**
-     * @param SharedStorageInterface $sharedStorage
-     * @param ClassStorageInterface  $classStorage
-     */
     public function __construct(
         SharedStorageInterface $sharedStorage,
         ClassStorageInterface $classStorage
@@ -57,8 +45,6 @@ final class PimcoreClassContext implements Context
         Runtime::clear();
 
         $name = $this->classStorage->get($name);
-
-        ClassLoader::forceLoadDataObjectClass($name);
 
         $classDefinition = ClassDefinition::getByName($name);
 

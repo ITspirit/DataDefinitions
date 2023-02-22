@@ -12,17 +12,18 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle;
 
+use Composer\InstalledVersions;
 use CoreShop\Bundle\ResourceBundle\AbstractResourceBundle;
-use CoreShop\Bundle\ResourceBundle\ComposerPackageBundleInterface;
 use CoreShop\Bundle\ResourceBundle\CoreShopResourceBundle;
 use CoreShop\Bundle\RuleBundle\CoreShopRuleBundle;
+use Pimcore\Extension\Bundle\Installer\InstallerInterface;
 use Pimcore\Extension\Bundle\PimcoreBundleInterface;
-use Pimcore\Extension\Bundle\Traits\PackageVersionTrait;
 use Pimcore\HttpKernel\BundleCollection\BundleCollection;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\CleanerRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\ExportProviderRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\ExportRunnerRegistryCompilerPass;
@@ -33,15 +34,14 @@ use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\ImportRule
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\ImportRuleConditionPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\InterpreterRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\LoaderRegistryCompilerPass;
+use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\PersisterRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\ProviderRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\RunnerRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\SetterRegistryCompilerPass;
 
-class DataDefinitionsBundle extends AbstractResourceBundle implements PimcoreBundleInterface, ComposerPackageBundleInterface
+class DataDefinitionsBundle extends AbstractResourceBundle
 {
-    use PackageVersionTrait;
-
-    public static function registerDependentBundles(BundleCollection $collection)
+    public static function registerDependentBundles(BundleCollection $collection): void
     {
         parent::registerDependentBundles($collection);
 
@@ -50,41 +50,14 @@ class DataDefinitionsBundle extends AbstractResourceBundle implements PimcoreBun
         ], 3500);
     }
 
-    public function getContainerExtension()
-    {
-        if (null === $this->extension) {
-            $extension = $this->createContainerExtension();
-
-            if (null !== $extension) {
-                if (!$extension instanceof ExtensionInterface) {
-                    throw new \LogicException(sprintf('Extension %s must implement Symfony\Component\DependencyInjection\Extension\ExtensionInterface.',
-                        get_class($extension)));
-                }
-
-                $this->extension = $extension;
-            } else {
-                $this->extension = false;
-            }
-        }
-
-        if ($this->extension) {
-            return $this->extension;
-        }
-    }
-
-    public function getPackageName()
-    {
-        return 'w-vision/data-definitions';
-    }
-
-    public function getSupportedDrivers()
+    public function getSupportedDrivers(): array
     {
         return [
             CoreShopResourceBundle::DRIVER_PIMCORE,
         ];
     }
 
-    public function build(ContainerBuilder $builder)
+    public function build(ContainerBuilder $builder): void
     {
         parent::build($builder);
 
@@ -101,51 +74,55 @@ class DataDefinitionsBundle extends AbstractResourceBundle implements PimcoreBun
         $builder->addCompilerPass(new ExportRunnerRegistryCompilerPass());
         $builder->addCompilerPass(new ImportRuleConditionPass());
         $builder->addCompilerPass(new ImportRuleActionPass());
+        $builder->addCompilerPass(new PersisterRegistryCompilerPass());
     }
 
-    public function getNiceName()
+    public function getVersion(): string
+    {
+        if (InstalledVersions::isInstalled('w-vision/data-definitions')) {
+            return InstalledVersions::getVersion('w-vision/data-definitions');
+        }
+
+        return '';
+    }
+
+    public function getNiceName(): string
     {
         return 'Data Definitions';
     }
 
-    public function getDescription()
+    public function getDescription(): string
     {
         return 'Data Definitions allows you to create reusable Definitions for Importing all kinds of data into DataObjects.';
     }
 
-    protected function getComposerPackageName()
-    {
-        return 'w-vision/data-definitions';
-    }
-
-    public function getInstaller()
+    public function getInstaller(): ?InstallerInterface
     {
         return $this->container->get(Installer::class);
     }
 
-    public function getAdminIframePath()
+    public function getAdminIframePath(): ?string
     {
         return null;
     }
 
-    public function getJsPaths()
+    public function getJsPaths(): array
     {
         return [];
     }
 
-    public function getCssPaths()
+    public function getCssPaths(): array
     {
         return [];
     }
 
-    public function getEditmodeJsPaths()
+    public function getEditmodeJsPaths(): array
     {
         return [];
     }
 
-    public function getEditmodeCssPaths()
+    public function getEditmodeCssPaths(): array
     {
         return [];
     }
 }
-

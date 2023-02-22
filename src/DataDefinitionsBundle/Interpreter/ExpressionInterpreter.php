@@ -12,23 +12,20 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Interpreter;
 
-use Pimcore\Model\DataObject\Concrete;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
+use Throwable;
+use Wvision\Bundle\DataDefinitionsBundle\Context\InterpreterContextInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Exception\InterpreterException;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataSetAwareTrait;
-use Wvision\Bundle\DataDefinitionsBundle\Model\DataDefinitionInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
 
-class ExpressionInterpreter implements InterpreterInterface, DataSetAwareInterface
+class ExpressionInterpreter implements InterpreterInterface
 {
-    use DataSetAwareTrait;
-
-    protected $expressionLanguage;
-    protected $container;
+    protected ExpressionLanguage $expressionLanguage;
+    protected ContainerInterface $container;
 
     public function __construct(ExpressionLanguage $expressionLanguage, ContainerInterface $container)
     {
@@ -36,32 +33,29 @@ class ExpressionInterpreter implements InterpreterInterface, DataSetAwareInterfa
         $this->container = $container;
     }
 
-    public function interpret(
-        Concrete $object,
-        $value,
-        MappingInterface $map,
-        $data,
-        DataDefinitionInterface $definition,
-        $params,
-        $configuration
-    ) {
-        $expression = $configuration['expression'];
+    public function interpret(InterpreterContextInterface $context): mixed {
+        $expression = $context->getConfiguration()['expression'];
 
         try {
             return $this->expressionLanguage->evaluate($expression, [
-                'value' => $value,
-                'object' => $object,
-                'map' => $map,
-                'data' => $data,
-                'definition' => $definition,
-                'params' => $params,
-                'configuration' => $configuration,
+                'value' => $context->getValue(),
+                'object' => $context->getObject(),
+                'map' => $context->getMapping(),
+                'data' => $context->getDataRow(),
+                'data_set' => $context->getDataSet(),
+                'definition' => $context->getDefinition(),
+                'params' => $context->getParams(),
+                'configuration' => $context->getConfiguration(),
                 'container' => $this->container,
             ]);
-        } catch (\Throwable $exception) {
-            throw InterpreterException::fromInterpreter($definition, $map, $params, $value, $exception);
+        } catch (Throwable $exception) {
+            throw InterpreterException::fromInterpreter(
+                $context->getDefinition(),
+                $context->getMapping(),
+                $context->getParams(),
+                $context->getValue(),
+                $exception
+            );
         }
     }
 }
-
-

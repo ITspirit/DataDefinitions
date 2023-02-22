@@ -12,11 +12,15 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Controller;
 
 use CoreShop\Bundle\ResourceBundle\Controller\ResourceController;
 use Pimcore\Model\DataObject;
+use Pimcore\Tool;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -25,10 +29,7 @@ use Wvision\Bundle\DataDefinitionsBundle\Model\ExportMapping\FromColumn;
 
 class ExportDefinitionController extends ResourceController
 {
-    /**
-     * @return mixed|\Symfony\Component\HttpFoundation\JsonResponse
-     */
-    public function getConfigAction()
+    public function getConfigAction(): JsonResponse
     {
         $providers = $this->getConfigProviders();
         $interpreters = $this->getConfigInterpreters();
@@ -47,16 +48,12 @@ class ExportDefinitionController extends ResourceController
                 'fetchers' => array_keys($fetchers),
                 'import_rules' => [
                     'conditions' => array_keys($importRuleConditions),
-                    'actions' => array_keys($importRuleActions)
-                ]
+                    'actions' => array_keys($importRuleActions),
+                ],
             ]
         );
     }
 
-    /**
-     * @param Request $request
-     * @return Response
-     */
     public function exportAction(Request $request): Response
     {
         $id = (int)$request->get('id');
@@ -88,11 +85,7 @@ class ExportDefinitionController extends ResourceController
         throw new NotFoundHttpException();
     }
 
-    /**
-     * @param Request $request
-     * @return mixed|\Symfony\Component\HttpFoundation\JsonResponse
-     */
-    public function importAction(Request $request)
+    public function importAction(Request $request): JsonResponse
     {
         $id = (int)$request->get('id');
         $definition = $this->repository->find($id);
@@ -121,11 +114,7 @@ class ExportDefinitionController extends ResourceController
         return $this->viewHandler->handle(['success' => false]);
     }
 
-    /**
-     * @param Request $request
-     * @return mixed|\Symfony\Component\HttpFoundation\JsonResponse
-     */
-    public function duplicateAction(Request $request)
+    public function duplicateAction(Request $request): JsonResponse
     {
         $id = (int)$request->get('id');
         $definition = $this->repository->find($id);
@@ -145,14 +134,7 @@ class ExportDefinitionController extends ResourceController
         return $this->viewHandler->handle(['success' => false]);
     }
 
-    /**
-     * Get Pimcore Class Definition.
-     *
-     * @param Request $request
-     *
-     * @return \Symfony\Component\HttpFoundation\JsonResponse
-     */
-    public function getColumnsAction(Request $request)
+    public function getColumnsAction(Request $request): JsonResponse
     {
         $id = $request->get('id');
         $definition = $this->repository->find($id);
@@ -165,7 +147,7 @@ class ExportDefinitionController extends ResourceController
         $fields = $classDefinition->getFieldDefinitions();
 
         $csLoadedGroupIds = [];
-        $activatedLanguages = \Pimcore\Tool::getValidLanguages();
+        $activatedLanguages = Tool::getValidLanguages();
 
         $result = $this->getSystemFields();
 
@@ -191,8 +173,13 @@ class ExportDefinitionController extends ResourceController
 
                             $localizedField->setGroup('localizedfield.'.strtolower($language));
                             $localizedField->setType('localizedfields');
-                            $localizedField->setIdentifier(sprintf('%s~%s', $localizedField->getIdentifier(),
-                                $language));
+                            $localizedField->setIdentifier(
+                                sprintf(
+                                    '%s~%s',
+                                    $localizedField->getIdentifier(),
+                                    $language
+                                )
+                            );
                             $localizedField->setGetter('localizedfield');
                             $localizedField->setConfig(['language' => $language]);
                             $localizedField->setGetterConfig(['language' => $language]);
@@ -212,7 +199,8 @@ class ExportDefinitionController extends ResourceController
                             $classDefs = $brickDefinition->getClassDefinitions();
 
                             foreach ($classDefs as $classDef) {
-                                if ($classDef['classname'] === $classDefinition->getName() && $classDef['fieldname'] === $field->getName()) {
+                                if ($classDef['classname'] === $classDefinition->getName(
+                                    ) && $classDef['fieldname'] === $field->getName()) {
                                     $fields = $brickDefinition->getFieldDefinitions();
 
                                     foreach ($fields as $brickField) {
@@ -220,8 +208,14 @@ class ExportDefinitionController extends ResourceController
 
                                         $resultField->setGroup('objectbrick.'.$key);
                                         $resultField->setType('objectbricks');
-                                        $resultField->setIdentifier(sprintf('objectbrick~%s~%s~%s', $field->getName(),
-                                            $key, $resultField->getIdentifier()));
+                                        $resultField->setIdentifier(
+                                            sprintf(
+                                                'objectbrick~%s~%s~%s',
+                                                $field->getName(),
+                                                $key,
+                                                $resultField->getIdentifier()
+                                            )
+                                        );
                                         $resultField->setGetter('objectbrick');
                                         $resultField->setConfig(['class' => $key]);
                                         $resultField->setType('objectbrick');
@@ -246,8 +240,14 @@ class ExportDefinitionController extends ResourceController
 
                             $resultField->setGroup('fieldcollection.'.$type);
                             $resultField->setType('fieldcollections');
-                            $resultField->setIdentifier(sprintf('fieldcollection~%s~%s~%s', $field->getName(), $type,
-                                $resultField->getIdentifier()));
+                            $resultField->setIdentifier(
+                                sprintf(
+                                    'fieldcollection~%s~%s~%s',
+                                    $field->getName(),
+                                    $type,
+                                    $resultField->getIdentifier()
+                                )
+                            );
                             $resultField->setGetter('fieldcollection');
                             $resultField->setConfig(['class' => $type]);
                             $resultField->setType('fieldcollection');
@@ -268,8 +268,10 @@ class ExportDefinitionController extends ResourceController
                     $allowedGroupIds = $field->getAllowedGroupIds();
 
                     if ($allowedGroupIds) {
-                        $list->setCondition('ID in ('.implode(',', $allowedGroupIds).') AND storeId = ?',
-                            [$field->getStoreId()]);
+                        $list->setCondition(
+                            'ID in ('.implode(',', $allowedGroupIds).') AND storeId = ?',
+                            [$field->getStoreId()]
+                        );
                     } else {
                         $list->setCondition('storeId = ?', [$field->getStoreId()]);
                     }
@@ -289,10 +291,21 @@ class ExportDefinitionController extends ResourceController
                                 $keyConfig = DataObject\Classificationstore\KeyConfig::getById($keyId);
 
                                 $toColumn = new FromColumn();
-                                $toColumn->setGroup(sprintf('classificationstore - %s (%s)', $config->getName(),
-                                    $config->getId()));
-                                $toColumn->setIdentifier(sprintf('classificationstore~%s~%s~%s', $field->getName(),
-                                    $keyConfig->getId(), $config->getId()));
+                                $toColumn->setGroup(
+                                    sprintf(
+                                        'classificationstore - %s (%s)',
+                                        $config->getName(),
+                                        $config->getId()
+                                    )
+                                );
+                                $toColumn->setIdentifier(
+                                    sprintf(
+                                        'classificationstore~%s~%s~%s',
+                                        $field->getName(),
+                                        $keyConfig->getId(),
+                                        $config->getId()
+                                    )
+                                );
                                 $toColumn->setType('classificationstore');
                                 $toColumn->setFieldtype($keyConfig->getType());
                                 $toColumn->setGetter('classificationstore');
@@ -327,10 +340,7 @@ class ExportDefinitionController extends ResourceController
         ]);
     }
 
-    /**
-     * @return array
-     */
-    protected function getSystemFields()
+    protected function getSystemFields(): array
     {
         $systemColumns = [
             [
@@ -392,11 +402,6 @@ class ExportDefinitionController extends ResourceController
         return $result;
     }
 
-    /**
-     * @param DataObject\ClassDefinition\Data $field
-     * @param string                          $group
-     * @return FromColumn
-     */
     protected function getFieldConfiguration(DataObject\ClassDefinition\Data $field, $group = 'fields'): FromColumn
     {
         $fromColumn = new FromColumn();
@@ -409,60 +414,38 @@ class ExportDefinitionController extends ResourceController
         return $fromColumn;
     }
 
-    /**
-     * @return array
-     */
     protected function getConfigProviders(): array
     {
-        return $this->getParameter('data_definitions.export_providers');
+        return $this->container->getParameter('data_definitions.export_providers');
     }
 
-    /**
-     * @return array
-     */
     protected function getConfigInterpreters(): array
     {
-        return $this->getParameter('data_definitions.interpreters');
+        return $this->container->getParameter('data_definitions.interpreters');
     }
 
-    /**
-     * @return array
-     */
     protected function getConfigRunners(): array
     {
-        return $this->getParameter('data_definitions.export_runners');
+        return $this->container->getParameter('data_definitions.export_runners');
     }
 
-    /**
-     * @return array
-     */
     protected function getConfigGetters(): array
     {
-        return $this->getParameter('data_definitions.getters');
+        return $this->container->getParameter('data_definitions.getters');
     }
 
-    /**
-     * @return array
-     */
     protected function getConfigFetchers(): array
     {
-        return $this->getParameter('data_definitions.fetchers');
+        return $this->container->getParameter('data_definitions.fetchers');
     }
 
-    /**
-     * @return array
-     */
     protected function getImportRuleConditions(): array
     {
-        return $this->getParameter('data_definitions.import_rule.conditions');
+        return $this->container->getParameter('data_definitions.import_rule.conditions');
     }
 
-    /**
-     * @return array
-     */
     protected function getImportRuleActions(): array
     {
-        return $this->getParameter('data_definitions.import_rule.actions');
+        return $this->container->getParameter('data_definitions.import_rule.actions');
     }
 }
-

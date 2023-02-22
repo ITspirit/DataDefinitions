@@ -12,6 +12,8 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Command;
 
 use CoreShop\Component\Resource\Repository\RepositoryInterface;
@@ -32,12 +34,13 @@ final class ListExportDefinitionsCommand extends AbstractCommand
         parent::__construct();
     }
 
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setName('data-definitions:list:exports')
             ->setDescription('List all Export Definitions.')
-            ->setHelp(<<<EOT
+            ->setHelp(
+                <<<EOT
 The <info>%command.name%</info> lists all Data Definitions for Exports.
 EOT
             );
@@ -67,4 +70,3 @@ EOT
         return 0;
     }
 }
-

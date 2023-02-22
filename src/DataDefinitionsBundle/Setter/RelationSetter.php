@@ -12,24 +12,21 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Setter;
 
-use Pimcore\Model\DataObject\Concrete;
-use Pimcore\Model\DataObject\Fieldcollection\Data\AbstractData as AbstractFieldCollection;
-use Wvision\Bundle\DataDefinitionsBundle\Getter\GetterInterface;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ExportMapping;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping;
-use Wvision\Bundle\DataDefinitionsBundle\Model\MappingInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Context\SetterContextInterface;
 
 class RelationSetter implements SetterInterface
 {
-    public function set(Concrete $object, $value, ImportMapping $map, $data)
+    public function set(SetterContextInterface $context): void
     {
-        $fieldName = $map->getToColumn();
+        $fieldName = $context->getMapping()->getToColumn();
         $getter = sprintf('get%s', ucfirst($fieldName));
         $setter = sprintf('set%s', ucfirst($fieldName));
 
-        $existingElements = $object->$getter();
+        $existingElements = $context->getObject()->$getter();
         if (!is_array($existingElements)) {
             $existingElements = [];
         }
@@ -40,6 +37,7 @@ class RelationSetter implements SetterInterface
             $existingKeys[] = (string)$existingElement;
         }
 
+        $value = $context->getValue();
 
         if (!is_iterable($value)) {
             $value = [$value];
@@ -53,8 +51,6 @@ class RelationSetter implements SetterInterface
             }
         }
 
-        $object->$setter($existingElements);
+        $context->getObject()->$setter($existingElements);
     }
 }
-
-

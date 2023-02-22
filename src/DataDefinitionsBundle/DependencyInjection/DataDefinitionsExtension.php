@@ -12,6 +12,8 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\DependencyInjection;
 
 use CoreShop\Bundle\ResourceBundle\DependencyInjection\Extension\AbstractModelExtension;
@@ -27,6 +29,7 @@ use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\FilterRegi
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\GetterRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\InterpreterRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\LoaderRegistryCompilerPass;
+use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\PersisterRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\ProviderRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\RunnerRegistryCompilerPass;
 use Wvision\Bundle\DataDefinitionsBundle\DependencyInjection\Compiler\SetterRegistryCompilerPass;
@@ -35,6 +38,7 @@ use Wvision\Bundle\DataDefinitionsBundle\Filter\FilterInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Getter\GetterInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Interpreter\InterpreterInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Loader\LoaderInterface;
+use Wvision\Bundle\DataDefinitionsBundle\Persister\PersisterInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Provider\ExportProviderInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Provider\ImportProviderInterface;
 use Wvision\Bundle\DataDefinitionsBundle\Runner\ExportRunnerInterface;
@@ -43,14 +47,9 @@ use Wvision\Bundle\DataDefinitionsBundle\Setter\SetterInterface;
 
 class DataDefinitionsExtension extends AbstractModelExtension
 {
-    public function getAlias(): string
-    {
-        return 'data_definitions';
-    }
-
     public function load(array $configs, ContainerBuilder $container)
     {
-        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
@@ -71,6 +70,10 @@ class DataDefinitionsExtension extends AbstractModelExtension
         }
 
         $loader->load('services.yml');
+
+        if (class_exists(\GuzzleHttp\Psr7\HttpFactory::class)) {
+            $loader->load('guzzle_psr7.yml');
+        }
 
         if (array_key_exists('ProcessManagerBundle', $bundles)) {
             $config['pimcore_admin']['js']['process_manager_import'] = '/bundles/datadefinitions/pimcore/js/process_manager/import_definitions.js';
@@ -115,5 +118,8 @@ class DataDefinitionsExtension extends AbstractModelExtension
         $container
             ->registerForAutoconfiguration(SetterInterface::class)
             ->addTag(SetterRegistryCompilerPass::SETTER_TAG);
+        $container
+            ->registerForAutoconfiguration(PersisterInterface::class)
+            ->addTag(PersisterRegistryCompilerPass::PERSISTER_TAG);
     }
 }

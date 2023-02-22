@@ -12,20 +12,13 @@
  * @license    https://github.com/w-vision/DataDefinitions/blob/master/gpl-3.0.txt GNU General Public License version 3 (GPLv3)
  */
 
+declare(strict_types=1);
+
 namespace Wvision\Bundle\DataDefinitionsBundle\Setter;
 
-use Pimcore\Model\DataObject\Concrete;
-use Wvision\Bundle\DataDefinitionsBundle\Model\ImportMapping;
+use Wvision\Bundle\DataDefinitionsBundle\Context\SetterContextInterface;
 
 interface SetterInterface
 {
-    /**
-     * @param Concrete      $object
-     * @param               $value
-     * @param ImportMapping $map
-     * @param array         $data
-     */
-    public function set(Concrete $object, $value, ImportMapping $map, $data);
+    public function set(SetterContextInterface $context);
 }
-
-
